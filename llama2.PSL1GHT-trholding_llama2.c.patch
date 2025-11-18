@@ -1,0 +1,274 @@
+diff --git a/run.c b/run.c
+index 3e6957a..e4b440c 100644
+--- a/run.c
++++ b/run.c
+@@ -160,15 +160,24 @@ __static_yoink("zipos");
+ #include <math.h>
+ #include <string.h>
+ #include <fcntl.h>
++/* llama2.PSL1GHT Addition */
++#ifndef RUN_C_NO_MMAP_INCLUDE
++/* END llama2.PSL1GHT Addition */
+ #if defined _WIN32
+     #include "win.h"
+ #else
+     #include <unistd.h>
+     #include <sys/mman.h>
+ #endif
++/* llama2.PSL1GHT Addition */
++#endif/*RUN_C_NO_MMAP_INCLUDE*/
++/* END llama2.PSL1GHT Addition */
+ // ----------------------------------------------------------------------------
+ // Transformer model
+ 
++/* llama2.PSL1GHT Addition */
++#ifndef RUN_C_NO_CONFIG
++/* END llama2.PSL1GHT Addition */
+ typedef struct {
+     int dim; // transformer dimension
+     int hidden_dim; // for ffn layers
+@@ -178,7 +187,13 @@ typedef struct {
+     int vocab_size; // vocabulary size, usually 256 (byte-level)
+     int seq_len; // max sequence length
+ } Config;
++/* llama2.PSL1GHT Addition */
++#endif/*RUN_C_NO_CONFIG*/
++/* END llama2.PSL1GHT Addition */
+ 
++/* llama2.PSL1GHT Addition */
++#ifndef RUN_C_NO_TRANSFORMERWEIGHTS
++/* END llama2.PSL1GHT Addition */
+ typedef struct {
+     // token embedding table
+     float* token_embedding_table;    // (vocab_size, dim)
+@@ -199,7 +214,13 @@ typedef struct {
+     // (optional) classifier weights for the logits, on the last layer
+     float* wcls;
+ } TransformerWeights;
++/* llama2.PSL1GHT Addition */
++#endif/*RUN_C_NO_TRANSFORMERWEIGHTS*/
++/* END llama2.PSL1GHT Addition */
+ 
++/* llama2.PSL1GHT Addition */
++#ifndef RUN_C_NO_RUNSTATE
++/* END llama2.PSL1GHT Addition */
+ typedef struct {
+     // current wave of activations
+     float *x; // activation at current time stamp (dim,)
+@@ -216,7 +237,13 @@ typedef struct {
+     float* key_cache;   // (layer, seq_len, dim)
+     float* value_cache; // (layer, seq_len, dim)
+ } RunState;
++/* llama2.PSL1GHT Addition */
++#endif/*RUN_C_NO_RUNSTATE*/
++/* END llama2.PSL1GHT Addition */
+ 
++/* llama2.PSL1GHT Addition */
++#ifndef RUN_C_NO_TRANSFORMER
++/* END llama2.PSL1GHT Addition */
+ typedef struct {
+     Config config; // the hyperparameters of the architecture (the blueprint)
+     TransformerWeights weights; // the weights of the model
+@@ -226,6 +253,9 @@ typedef struct {
+     float* data; // memory mapped data pointer
+     ssize_t file_size; // size of the checkpoint file in bytes
+ } Transformer;
++/* llama2.PSL1GHT Addition */
++#endif/*RUN_C_NO_TRANSFORMER*/
++/* END llama2.PSL1GHT Addition */
+ 
+ void malloc_run_state(RunState* s, Config* p) {
+     // we calloc instead of malloc to keep valgrind happy
+@@ -261,6 +291,9 @@ void free_run_state(RunState* s) {
+     free(s->value_cache);
+ }
+ 
++/* llama2.PSL1GHT Addition */
++#ifndef RUN_C_NO_MEMORY_MAP_WEIGHTS
++/* END llama2.PSL1GHT Addition */
+ void memory_map_weights(TransformerWeights *w, Config* p, float* ptr, int shared_weights) {
+     int head_size = p->dim / p->n_heads;
+     // make sure the multiplications below are done in 64bit to fit the parameter counts of 13B+ models
+@@ -291,6 +324,12 @@ void memory_map_weights(TransformerWeights *w, Config* p, float* ptr, int shared
+     ptr += p->seq_len * head_size / 2; // skip what used to be freq_cis_imag (for RoPE)
+     w->wcls = shared_weights ? w->token_embedding_table : ptr;
+ }
++/* llama2.PSL1GHT Addition */
++#endif/*RUN_C_NO_MEMORY_MAP_WEIGHTS*/
++/* END llama2.PSL1GHT Addition */
++/* llama2.PSL1GHT Addition */
++#ifndef RUN_C_NO_READ_CHECKPOINT
++/* END llama2.PSL1GHT Addition */
+ // L2E Addition
+ #if defined (INC_BIN) || defined(STRLIT)
+ void read_checkpoint(char* checkpoint, Config* config, TransformerWeights* weights, 
+@@ -337,6 +376,9 @@ void read_checkpoint(char* checkpoint, Config* config, TransformerWeights* weigh
+ // L2E Addition
+ #endif
+ // END L2E Addition
++/* llama2.PSL1GHT Addition */
++#endif/*RUN_C_NO_READ_CHECKPOINT*/
++/* END llama2.PSL1GHT Addition */
+ 
+ void build_transformer(Transformer *t, char* checkpoint_path) {
+     // read in the Config and the Weights from the checkpoint
+@@ -345,6 +387,9 @@ void build_transformer(Transformer *t, char* checkpoint_path) {
+     malloc_run_state(&t->state, &t->config);
+ }
+ 
++/* llama2.PSL1GHT Addition */
++#ifndef RUN_C_NO_FREE_TRANSFORMER
++/* END llama2.PSL1GHT Addition */
+ void free_transformer(Transformer* t) {
+     // close the memory mapping
+     if (t->data != MAP_FAILED) { munmap(t->data, t->file_size); }
+@@ -352,10 +397,16 @@ void free_transformer(Transformer* t) {
+     // free the RunState buffers
+     free_run_state(&t->state);
+ }
++/* llama2.PSL1GHT Addition */
++#endif
++/* END llama2.PSL1GHT Addition */
+ 
+ // ----------------------------------------------------------------------------
+ // neural net blocks; the dynamics of the Transformer
+ 
++/* llama2.PSL1GHT Addition */
++#ifndef RUN_C_NO_RMSNORM
++/* END llama2.PSL1GHT Addition */
+ void rmsnorm(float* o, float* x, float* weight, int size) {
+     // calculate sum of squares
+     float ss = 0.0f;
+@@ -386,7 +437,13 @@ void rmsnorm(float* o, float* x, float* weight, int size) {
+         o[j] = weight[j] * (ss * x[j]);
+     }
+ }
++/* llama2.PSL1GHT Addition */
++#endif/*RUN_C_NO_RMSNORM*/
++/* END llama2.PSL1GHT Addition */
+ 
++/* llama2.PSL1GHT Addition */
++#ifndef RUN_C_NO_SOFTMAX
++/* END llama2.PSL1GHT Addition */
+ void softmax(float* x, int size) {
+     // find max value (for numerical stability)
+     float max_val = x[0];
+@@ -406,6 +463,9 @@ void softmax(float* x, int size) {
+         x[i] /= sum;
+     }
+ }
++/* llama2.PSL1GHT Addition */
++#endif/*RUN_C_NO_SOFTMAX*/
++/* END llama2.PSL1GHT Addition */
+ 
+ // L2E Addition
+ #ifdef ACCELAVX
+@@ -508,6 +568,9 @@ void debug_matmul(float* xout, float* x, float* w, int n, int d) {
+ #endif
+ // END L2E Addition 
+ 
++/* llama2.PSL1GHT Addition */
++#ifndef RUN_C_NO_MATMUL
++/* END llama2.PSL1GHT Addition */
+ void matmul(float* xout, float* x, float* w, int n, int d) {
+     // W (d,n) @ x (n,) -> xout (d,)
+     // by far the most amount of time is spent inside this little function
+@@ -535,6 +598,9 @@ void matmul(float* xout, float* x, float* w, int n, int d) {
+     #endif
+ // END L2E Addition 
+ }
++/* llama2.PSL1GHT Addition */
++#endif/*RUN_C_NO_MATMUL*/
++/* END llama2.PSL1GHT Addition */
+ 
+ float* forward(Transformer* transformer, int token, int pos) {
+ 
+@@ -688,11 +754,21 @@ float* forward(Transformer* transformer, int token, int pos) {
+ // ----------------------------------------------------------------------------
+ // The Byte Pair Encoding (BPE) Tokenizer that translates strings <-> tokens
+ 
++/* llama2.PSL1GHT Addition */
++#ifndef RUN_C_NO_TOKENINDEX
++/* END llama2.PSL1GHT Addition */
+ typedef struct {
+     char *str;
+     int id;
+ } TokenIndex;
++/* llama2.PSL1GHT Addition */
++#endif/*RUN_C_NO_TOKENINDEX*/
++/* END llama2.PSL1GHT Addition */
++
+ 
++/* llama2.PSL1GHT Addition */
++#ifndef RUN_C_NO_TOKENIZER
++/* END llama2.PSL1GHT Addition */
+ typedef struct {
+     char** vocab;
+     float* vocab_scores;
+@@ -701,11 +777,17 @@ typedef struct {
+     unsigned int max_token_length;
+     unsigned char byte_pieces[512]; // stores all single-byte strings
+ } Tokenizer;
++/* llama2.PSL1GHT Addition */
++#endif/*RUN_C_NO_TOKENIZER*/
++/* END llama2.PSL1GHT Addition */
+ 
+ int compare_tokens(const void *a, const void *b) {
+     return strcmp(((TokenIndex*)a)->str, ((TokenIndex*)b)->str);
+ }
+ 
++/* llama2.PSL1GHT Addition */
++#ifndef RUN_C_NO_BUILD_TOKENIZER
++/* END llama2.PSL1GHT Addition */
+ void build_tokenizer(Tokenizer* t, char* tokenizer_path, int vocab_size) {
+     // i should have written the vocab_size into the tokenizer file... sigh
+     t->vocab_size = vocab_size;
+@@ -762,6 +844,9 @@ void build_tokenizer(Tokenizer* t, char* tokenizer_path, int vocab_size) {
+ #endif
+ // END L2E Addition
+ }
++/* llama2.PSL1GHT Addition */
++#endif/*RUN_C_NO_BUILD_TOKENIZER*/
++/* END llama2.PSL1GHT Addition */
+ 
+ void free_tokenizer(Tokenizer* t) {
+     for (int i = 0; i < t->vocab_size; i++) { free(t->vocab[i]); }
+@@ -1100,12 +1185,18 @@ int sample(Sampler* sampler, float* logits) {
+ // ----------------------------------------------------------------------------
+ // utilities: time
+ 
++/* llama2.PSL1GHT Addition */
++#ifndef RUN_C_NO_TIME_IN_MS
++/* END llama2.PSL1GHT Addition */
+ long time_in_ms() {
+     // return time in milliseconds, for benchmarking the model speed
+     struct timespec time;
+     clock_gettime(CLOCK_REALTIME, &time);
+     return time.tv_sec * 1000 + time.tv_nsec / 1000000;
+ }
++/* llama2.PSL1GHT Addition */
++#endif/*RUN_C_NO_TIME_IN_MS*/
++/* END llama2.PSL1GHT Addition */
+ 
+ // ----------------------------------------------------------------------------
+ // generation loop
+@@ -1184,6 +1275,9 @@ void generate(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler,
+     free(prompt_tokens);
+ }
+ 
++/* llama2.PSL1GHT Addition */
++#ifndef RUN_C_NO_READ_STDIN
++/* END llama2.PSL1GHT Addition */
+ void read_stdin(const char* guide, char* buffer, size_t bufsize) {
+     // read a line from stdin, up to but not including \n
+     printf("%s", guide);
+@@ -1194,6 +1288,9 @@ void read_stdin(const char* guide, char* buffer, size_t bufsize) {
+         }
+     }
+ }
++/* llama2.PSL1GHT Addition */
++#endif/*RUN_C_NO_READ_STDIN*/
++/* END llama2.PSL1GHT Addition */
+ 
+ // ----------------------------------------------------------------------------
+ // chat loop

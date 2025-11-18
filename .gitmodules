@@ -1,0 +1,3 @@
+[submodule "trholding_llama2.c"]
+	path = trholding_llama2.c
+	url = https://github.com/trholding/llama2.c.git
